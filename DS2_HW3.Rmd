@@ -1,0 +1,102 @@
+---
+title: "DS2_HW3"
+author: "Yixiao Sun"
+date: "2024-03-22"
+output: pdf_document
+---
+
+```{r}
+library(dplyr)
+library(caret)
+library(glmnet) 
+library(tidymodels) 
+library(pROC) 
+library(MASS)
+library(caTools)
+data <- read.csv("~/Desktop/P8106 Data Science 2/ds2_hw3/auto.csv")
+set.seed(123)
+data <- data %>% mutate(mpg_cat = as.factor(mpg_cat), origin = as.factor(origin))
+contrasts(data$mpg_cat)
+ctrl1 <- trainControl(method = "cv", number = 10,summaryFunction = twoClassSummary,classProbs = TRUE)
+
+data_split <- initial_split(data, prop = 0.7) 
+train_data <- training(data_split) 
+test_data <- testing(data_split)
+
+```
+
+# Question 1
+```{r}
+set.seed(123)
+enet.fit <- train(mpg_cat ~ ., 
+                   data = train_data, 
+                   method = "glmnet",
+                   tuneGrid = expand.grid(alpha = seq(0,1,length = 21),
+                                          lambda = exp(seq(1, -8, length = 100))),
+                  metric = "ROC",
+                  trControl = ctrl1) 
+enet.fit$bestTune
+print(coef(enet.fit$finalModel,enet.fit$bestTune$lambda))
+plot(enet.fit, xTrans = log)
+```
+
+
+# Based on the enet model which can be helpful to identify the redundant variable, we identify variables cylinders and displacement as redundant variable.
+
+
+# Question 2
+```{r}
+set.seed(123)
+predict_prob <- predict(enet.fit, newdata = test_data, type = "prob")[,2]
+predicted_class <- ifelse(predict_prob > 0.5, "low", "high")
+CM<-confusionMatrix(data = as.factor(predicted_class), reference = test_data$mpg_cat, positive = "low")
+```
+
+# For the confusion matrix, we obtain an Accuracy of 0.8983, which indicates that our Elastic Net Model has an identify accuracy of 0.8983 .And we obtain a sensitivity of 0.9167, indicating that our Elatic Net Model classifies 91.67% of true “high” instances correctly. We get a specificity of 0.8793, indicating that our Elastic Net Model classifies 87.93% of true “low” instances correctly. Finally we get a Kappa of 0.7964, indicating that our model has a good performance in this classification.
+
+# Question 3
+```{r, warning = FALSE}
+set.seed(123)
+mars.fit <- train(mpg_cat ~.,
+                    data = train_data,
+                    method = "earth",
+                    tuneGrid = expand.grid(degree = 1:4,
+                                           nprune = 2:20),
+                  metric = "ROC",
+                  trControl = ctrl1)
+plot(mars.fit)
+
+bwplot(resamples(list(enet = enet.fit, mars = mars.fit)), matrix = "ROC")
+```
+
+# After creating the mars model, we conclude that the Elastic Net Model is still better for the prediction performance for producing a higher ROC value.
+
+# Question 4
+```{r}
+set.seed(123)
+library(MASS)
+lda.fit <- train(mpg_cat ~ ., 
+                   data = train_data,
+                   method = "lda",
+                   metric = "ROC",
+                   trControl = ctrl1)
+lda<-lda(mpg_cat ~ ., data = train_data)
+plot(lda)
+```
+
+# Question 5
+```{r}
+bwplot(resamples(list(enet = enet.fit, mars = mars.fit, lda = lda.fit)), matrix = "RMSE")
+
+resamp<-resamples(list(enet = enet.fit, mars = mars.fit, lda = lda.fit))
+summary(resamp)
+library(pROC)
+roc_response <- roc(response = test_data$mpg_cat, predictor = as.numeric(predict_prob))
+plot(roc_response,print.auc = T, legacy.axes = T)
+plot(smooth(roc_response),add = T)
+auc(roc_response)
+error_rate <- 1- CM$overall
+print(error_rate)
+```
+
+# Based on the comparison, we choose Elastic Net Model to predict the response variable, The AUC value is 0.9626, and the calculated misclassification error rate is 0.10169492.
