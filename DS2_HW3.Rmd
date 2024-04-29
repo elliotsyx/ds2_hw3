@@ -82,6 +82,10 @@ lda.fit <- train(mpg_cat ~ .,
                    trControl = ctrl1)
 lda<-lda(mpg_cat ~ ., data = train_data)
 plot(lda)
+
+lda.model = lda(mpg_cat~., data = train_data)
+lda.model$scaling
+head(predict(lda.model)$x)
 ```
 
 # Question 5

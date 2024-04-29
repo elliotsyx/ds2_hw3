@@ -1,0 +1,146 @@
+---
+title: "DS2_HW5"
+author: "Yixiao Sun"
+date: "2024-04-29"
+output: pdf_document
+---
+
+Question 1
+```{r, message=FALSE}
+library(dplyr)
+library(caret)
+library(glmnet) 
+library(tidymodels) 
+library(pROC) 
+library(MASS)
+library(caTools)
+library(kernlab)
+library(ISLR)
+library(stats)
+library(factoextra)
+library(gridExtra)
+library(corrplot)
+library(RColorBrewer)
+library(gplots)
+library(jpeg)
+data <- read.csv("~/Desktop/P8106 Data Science 2/ds2_hw3/auto.csv")
+set.seed(1)
+data <- data %>% mutate(mpg_cat = as.factor(mpg_cat), origin = as.factor(origin))
+
+data_split <- initial_split(data, prop = 0.7) 
+train_data <- training(data_split) 
+test_data <- testing(data_split)
+```
+
+# 1a
+```{r}
+ctrl <- trainControl(method = "cv")
+set.seed(1)
+svml.fit <- train(mpg_cat ~ . ,
+                  data = train_data,
+                  method = "svmLinear",
+                  tuneGrid = data.frame(C = exp(seq(-6, 2, len = 50))),
+                  trControl = ctrl)
+plot(svml.fit, highlight = TRUE, xTrans = log)
+
+train_pred1 <- predict(svml.fit, train_data)
+train_error1 <- mean(train_pred1 != train_data$mpg_cat)
+
+test_pred1 <- predict(svml.fit, test_data)
+test_error1 <- mean(test_pred1!= test_data$mpg_cat)
+```
+The training error is 0.0839416, test error is 0.13559.
+
+
+
+
+
+
+
+#1b
+```{r}
+svmr.grid <- expand.grid(C = exp(seq(1, 7, len = 50)),
+                         sigma = exp(seq(-10, -2, len = 20)))
+
+
+set.seed(1)
+svmr.fit <- train(mpg_cat ~ . , data = train_data,
+                  method = "svmRadialSigma",
+                  tuneGrid = svmr.grid,
+                  trControl = ctrl)
+
+myCol <- rainbow(25)
+myPar <- list(superpose.symbol = list(col = myCol),
+              superpose.line = list(col = myCol))
+plot(svmr.fit, highlight = TRUE, par.settings = myPar)
+
+
+train_pred2 <- predict(svmr.fit, train_data)
+train_error2 <- mean(train_pred2!= train_data$mpg_cat)
+
+test_pred2 <- predict(svmr.fit, test_data)
+test_error2 <- mean(test_pred2!= test_data$mpg_cat)
+
+```
+The training error is 0.036496, test error is 0.10169.
+
+
+Question 2
+```{r }
+data("USArrests")
+dat1 <- USArrests[,1:4]
+dat1 <- scale(dat1)
+```
+
+#2a
+```{r}
+set.seed(1)
+hc.complete <- hclust(dist(USArrests), method = "complete")
+fviz_dend(hc.complete, k = 3,
+          cex = 0.3,
+          palette = "jco",
+          color_labels_by_k = TRUE,
+          rect = TRUE, rect_fill = TRUE, rect_border = "jco",
+          labels_track_height = 2.5)
+
+ind4.complete <- cutree(hc.complete, 3)
+USArrests[ind4.complete == 1,]
+USArrests[ind4.complete == 2,]
+USArrests[ind4.complete == 3,]
+```
+Without Scaling the variable, the first cluster contains: "Alabama" "Alaska" "Arizona"  "California" "Delaware" "Florida" "Illinois" "Louisiana" "Maryland" "Michigan" "Mississippi" "Nevada" "New Mexico" "New York" "North Carolina" "South Carolina";
+
+Second cluster contains:"Arkansas" "Colorado" "Georgia" "Massachusetts" "Missouri" "New Jersey"    "Oklahoma" "Oregon" "Rhode Island" "Tennessee" "Texas" "Virginia" "Washington" "Wyoming";
+
+Third cluster contains: "Connecticut" "Hawaii" "Idaho" "Indiana" "Iowa" "Kansas" "Kentucky" "Maine" "Minnesota" "Montana" "Nebraska" "New Hampshire" "North Dakota" "Ohio" "Pennsylvania" "South Dakota"  "Utah" "Vermont" "West Virginia" "Wisconsin" .
+
+
+
+#2b
+```{r}
+hc.complete2 <- hclust(dist(dat1), method = "complete")
+fviz_dend(hc.complete2, k = 3,
+          cex = 0.3,
+          palette = "jco",
+          color_labels_by_k = TRUE,
+          rect = TRUE, rect_fill = TRUE, rect_border = "jco",
+          labels_track_height = 2.5, scale = T)
+
+ind4.complete2 <- cutree(hc.complete2, 3)
+dat1[ind4.complete2 == 1,]
+dat1[ind4.complete2 == 2,]
+dat1[ind4.complete2 == 3,]
+```
+After scaling the variable, the first cluster contains: "Alabama" "Alaska" "Georgia" "Louisiana" "Mississippi" "North Carolina" "South Carolina" "Tennessee";
+
+The second cluster contains:"Arizona" "California" "Colorado" "Florida" "Illinois" "Maryland"   "Michigan" "Nevada"  "New Mexico" "New York" "Texas";
+
+The third cluster contains: "Arkansas" "Connecticut" "Delaware" "Hawaii" "Idaho" "Indiana" "Iowa"     "Kansas" "Kentucky" "Maine" "Massachusetts" "Minnesota" "Missouri" "Montana" "Nebraska" "New Hampshire" "New Jersey" "North Dakota" "Ohio" "Oklahoma" "Oregon" "Pennsylvania" "Rhode Island" "South Dakota"  "Utah" "Vermont" "Virginia" "Washington" "West Virginia" "Wisconsin" "Wyoming".
+
+
+
+
+
+# 3b
+
+# Scaling the variable changes the clustering results. The variables with larger ranges can have influence on calculating the distance when doing hierarchical clustering. And when we are deal with scaled variable clustering to get the standard deviation one, variables equally contribute to calculating the distance. In my opinion, variables should be scaled before the inter-observation dissimilarities are computed since we can treat the variables equally when analyzing and especially during the time when the range of variables are too large.
